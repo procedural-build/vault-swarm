@@ -1,4 +1,5 @@
 import datetime
+from copy import deepcopy
 from typing import Union, List, Optional
 
 import docker
@@ -84,9 +85,89 @@ def create_secret(secret_data: bytes, secret_name: str, version: int, vault_path
     client = docker.from_env()
     name = f"{secret_name}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
     vault_path = vault_path.replace(".", "/")
-    secret = client.secrets.create(
-        name=name, data=secret_data, labels={"version": str(version), "path": vault_path}
-    )
+    secret = client.secrets.create(name=name, data=secret_data, labels={"version": str(version), "path": vault_path})
     secret.reload()
 
     return secret
+
+
+def get_service_environment_variables(service: DockerService) -> dict:
+    env_list = service.attrs["Spec"].get("TaskTemplate", {}).get("ContainerSpec", {}).get("Env", [])
+    return convert_env_list_to_dict(env_list)
+
+
+def convert_dict_to_env_list(env_vars: dict) -> list:
+    return [f"{key}={value}" for key, value in env_vars.items()]
+
+
+def convert_env_list_to_dict(env_vars: list) -> dict:
+    if env_vars:
+        return {env.split("=")[0]: env.split("=")[1] for env in env_vars}
+    else:
+        return {}
+
+
+def update_service_env_vars(service: DockerService, vault_key: str, vault_env: Union[dict, str]):
+    env_vars = get_service_environment_variables(service)
+
+    if vault_key == "all":
+        env_vars.update(vault_env)
+    else:
+        env_vars.update({vault_key: vault_env})
+    env_list = convert_dict_to_env_list(env_vars)
+
+    service.update(env=env_list)
+    service.reload()
+
+    logger.info(f"Updated env var: {vault_key} for service: {service.short_id}")
+    return service
+
+
+def prepare_environment_variables(service: DockerService, vault_env: dict) -> list:
+    env_vars = get_service_environment_variables(service)
+    new_env = deepcopy(env_vars)
+    new_env.update(vault_env)
+
+    if env_vars == new_env:
+        return []
+    else:
+        return convert_dict_to_env_list(new_env)
+
+
+def prepare_secrets(vault_secrets: List[dict]) -> List[SecretReference]:
+    new_secrets = []
+    for secret in vault_secrets:
+        new_secret = create_secret(secret["data"], secret["name"], secret["version"], secret["path"])
+        new_secrets.append(SecretReference(new_secret.id, new_secret.name, filename=secret["name"]))
+
+    return new_secrets
+
+
+def update_service(service: DockerService, env_vars: dict, secrets: List[dict]) -> DockerService:
+    """Bulk update a Docker service with new environment variables and secrets"""
+
+    new_environment = new_secrets = None
+
+    if env_vars:
+        new_environment = prepare_environment_variables(service, env_vars)
+
+    if secrets:
+        new_secrets = prepare_secrets(secrets)
+
+    if new_environment and new_secrets:
+        service.update(env=new_environment, secrets=new_secrets)
+        logger.info(
+            f"Updated environment variables: {', '.join(env_vars.keys())} and "
+            f"secrets: {', '.join([s['name'] for s in secrets])} for service: {service.short_id}"
+        )
+    elif new_environment:
+        service.update(env=new_environment)
+        logger.info(f"Updated environment variables: {', '.join(env_vars.keys())} for service: {service.short_id}")
+    elif new_secrets:
+        service.update(secrets=new_secrets)
+        logger.info(f"Updated secrets: {', '.join([s['name'] for s in secrets])} for service: {service.short_id}")
+    else:
+        logger.info(f"Nothing updated for service: {service.short_id}")
+
+    service.reload()
+    return service

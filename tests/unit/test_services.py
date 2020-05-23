@@ -45,8 +45,18 @@ def test_get_docker_secret_version(docker_secret):
 
 
 def test_update_service_secret(service_with_secret):
-    new_sercret = b"new data"
-    updated_service = update_service_secret(service_with_secret, new_sercret, 2, "secret=test")
+    new_secret = b"new data"
+    updated_service = update_service_secret(service_with_secret, new_secret, version=2, name="test", path="secrets")
 
     assert updated_service
     assert updated_service.attrs["Spec"] != updated_service.attrs["PreviousSpec"]
+
+
+def test_update_service_env_vars(service_with_env_vars):
+    env_name = "TEST"
+    env_value = "value"
+    updated_service = update_service_env_vars(service_with_env_vars, env_name, env_value)
+
+    assert updated_service
+    assert updated_service.attrs["Spec"] != updated_service.attrs["PreviousSpec"]
+    assert updated_service.attrs["Spec"]["TaskTemplate"]["ContainerSpec"]["Env"] == ["KEEP_ME=true", "TEST=value"]

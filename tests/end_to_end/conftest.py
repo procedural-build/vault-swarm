@@ -23,7 +23,7 @@ def docker_service(vault_token):
         image="busybox:latest",
         command=["sleep", "infinity"],
         name="service",
-        labels={"vault.secret.secret.test": "foo"}
+        labels={"vault.secrets.test": "foo", "vault.envvars.test": "bar"}
     )
 
     while service_.tasks()[0].get("Status").get("State") != "running":

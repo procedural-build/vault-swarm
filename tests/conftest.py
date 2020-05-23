@@ -42,9 +42,11 @@ def vault_url():
 
 @pytest.fixture()
 def vault_token():
-    yield "token"
+    token = "token"
+    os.environ["VAULT_TOKEN"] = token
+    yield token
 
 
 @pytest.fixture()
 def vault_client(vault_service, vault_url, vault_token):
-    yield vault.get_connection(vault_url, vault_token)
+    yield vault.get_connection(vault_url)

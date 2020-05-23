@@ -44,7 +44,7 @@ def service_with_secret(vault_token, docker_secret):
         image="busybox:latest",
         command=["sleep", "infinity"],
         name="secret",
-        labels={"vault.secret": "test"},
+        labels={"vault.secrets": "test"},
         secrets=[SecretReference(docker_secret.id, docker_secret.name)]
     )
 
@@ -55,3 +55,27 @@ def service_with_secret(vault_token, docker_secret):
 
     service_.remove()
     network.remove()
+
+
+@pytest.fixture()
+def service_with_env_vars():
+    client = docker.from_env()
+
+    client.networks.prune()
+    network = client.networks.create(name=f"environment_default", scope="swarm", driver="overlay", attachable=True)
+    service_ = client.services.create(
+        image="busybox:latest",
+        command=["sleep", "infinity"],
+        name="environment",
+        labels={"vault.envvars.test": "TEST"},
+        env=["KEEP_ME=true"]
+    )
+
+    while service_.tasks()[0].get("Status").get("State") != "running":
+        sleep(1)
+
+    yield service_
+
+    service_.remove()
+    network.remove()
+
