@@ -5,7 +5,16 @@ import vault
 from services import *
 import logging
 
-logger = logging.getLogger(__name__)
+
+def configure_logger(logger_: logging.Logger):
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(filename)s - %(funcName)s - %(message)s")
+
+    sh = logging.StreamHandler()
+    sh.setFormatter(formatter)
+    sh.setLevel(logging.DEBUG)
+    logger_.addHandler(sh)
+
+    return logger_
 
 
 def main():
@@ -42,4 +51,5 @@ def main():
 
 
 if __name__ == "__main__":
+    logger = configure_logger(logging.getLogger(__name__))
     main()
