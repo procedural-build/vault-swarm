@@ -44,7 +44,7 @@ def main():
 
     sleep_length = os.environ.get("INTERVAL", 5 * 60)
     logging.info(f"Going to sleep for {sleep_length}s")
-    # time.sleep(sleep_length)
+    time.sleep(sleep_length)
 
 
 if __name__ == "__main__":
