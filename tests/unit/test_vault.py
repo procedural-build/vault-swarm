@@ -3,7 +3,7 @@ import vault
 
 def test_connect_to_vault(vault_service, vault_url, vault_token):
 
-    client = vault.get_connection(vault_url, vault_token)
+    client = vault.get_connection(vault_url)
 
     assert client.is_authenticated()
 

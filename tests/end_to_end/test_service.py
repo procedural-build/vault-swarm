@@ -19,8 +19,8 @@ def test_remove_env():
 def test_add_secret(image, vault_token, vault_service, vault_client, docker_service):
     """Test that a secret can be attached to a service"""
 
-    response = vault_client.secrets.kv.v2.create_or_update_secret(path="secrets/test", secret={"foo": "value"})
-    response = vault_client.secrets.kv.v2.create_or_update_secret(path="envvars/test", secret={"bar": "value"})
+    response = vault_client.secrets.kv.v2.create_or_update_secret(path="test", mount_point="secrets", secret={"foo": "value"})
+    response = vault_client.secrets.kv.v2.create_or_update_secret(path="test", mount_point="envvars", secret={"bar": "value"})
 
     client = docker.from_env()
     cmd = "python main.py"
@@ -39,7 +39,7 @@ def test_add_secret(image, vault_token, vault_service, vault_client, docker_serv
     # assert that /run/secrets/foo is value
     code, result = service_container.exec_run("cat /run/secrets/foo")
 
-    container.kill()
+    container.stop()
     container.remove()
 
     assert result.decode() == "value"

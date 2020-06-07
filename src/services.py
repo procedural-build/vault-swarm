@@ -32,9 +32,16 @@ def get_service_labels(service: Union[DockerService, str]) -> dict:
 
 
 def get_services_with_secrets():
+    """Returns Docker services with labels that starts with 'vault.'"""
+
     client = docker.from_env()
 
     services = client.services.list()
+    services = [
+        service
+        for service in services
+        if any([label.startswith("vault") for label in get_service_labels(service).keys()])
+    ]
 
     return services
 
@@ -69,17 +76,6 @@ def get_secret_labels(secret: Union[DockerSecret, str]) -> dict:
         return {}
 
 
-def update_service_secret(service: DockerService, data: bytes, version: int, name: str, path: str) -> DockerService:
-    """Update a secret connected to a Docker Service"""
-
-    secret = create_secret(data, name, version, path)
-    service.update(secrets=[SecretReference(secret.id, secret.name, filename=name)])
-    service.reload()
-
-    logging.info(f"Updated secret: {secret.name} for service: {service.short_id}")
-    return service
-
-
 def create_secret(secret_data: bytes, secret_name: str, version: int, vault_path: str) -> DockerSecret:
     """Create a Docker Secret"""
 
@@ -112,22 +108,6 @@ def convert_env_list_to_dict(env_vars: list) -> dict:
         return {env.split("=")[0]: env.split("=")[1] for env in env_vars}
     else:
         return {}
-
-
-def update_service_env_vars(service: DockerService, vault_key: str, vault_env: Union[dict, str]):
-    env_vars = get_service_environment_variables(service)
-
-    if vault_key == "all":
-        env_vars.update(vault_env)
-    else:
-        env_vars.update({vault_key: vault_env})
-    env_list = convert_dict_to_env_list(env_vars)
-
-    service.update(env=env_list)
-    service.reload()
-
-    logging.info(f"Updated env var: {vault_key} for service: {service.short_id}")
-    return service
 
 
 def prepare_environment_variables(service: DockerService, vault_env: dict) -> list:
