@@ -29,6 +29,8 @@ RUN pip install --no-index --find-links=/root/wheels -r /tmp/requirements.txt
 
 COPY src/ /app
 
+CMD ["python /app/main.py"]
+
 FROM python:3.8.3-alpine AS dev
 # Dev container with dev dependencies installed
 COPY --from=production / /
@@ -38,3 +40,5 @@ WORKDIR /app
 
 # Install Dev dependencies
 RUN pip install --no-index --find-links=/root/wheels_dev -r /tmp/requirements_dev.txt
+
+CMD ["python /app/main.py"]

@@ -1,8 +1,8 @@
-from typing import Optional, Tuple, Union
+import os
+from typing import Optional, Tuple
 
 import hvac
 import hvac.exceptions
-import os
 
 
 def get_connection(url: str) -> hvac.Client:
@@ -12,7 +12,7 @@ def get_connection(url: str) -> hvac.Client:
     authenticated_client = authenticate_vault(client)
 
     if not authenticated_client.is_authenticated():
-        raise hvac.exceptions.Unauthorized('Unable to authenticate to the Vault service')
+        raise hvac.exceptions.Unauthorized("Unable to authenticate to the Vault service")
 
     return authenticated_client
 
@@ -20,14 +20,20 @@ def get_connection(url: str) -> hvac.Client:
 def get_secret_data_version(client: hvac.Client, path: str, secret: str) -> Tuple[dict, int]:
     """Get a Vault secret and its version"""
 
-    path = path.replace("vault.", "").replace(".", "/")
+    path = path.replace("vault.", "").split(".")
+    mount_point = path[0]
+    path = "/".join(path[1:])
 
-    response = client.secrets.kv.read_secret_version(path=path)
+    response = client.secrets.kv.v2.read_secret_version(path=path, mount_point=mount_point)
     version = response["data"]["metadata"]["version"]
     if secret == "all":
         data = response["data"]["data"]
     else:
-        data = {secret: response["data"]["data"].get(secret, None)}
+        if ":" in secret:
+            secret_, key = secret.split(":")
+            data = {key: response["data"]["data"].get(secret_, None)}
+        else:
+            data = {secret: response["data"]["data"].get(secret, None)}
 
     return data, version
 
@@ -54,7 +60,7 @@ def get_vault_user_password() -> Tuple[Optional[str], Optional[str]]:
     path = "/run/secrets/user_pass"
 
     if os.path.exists(path):
-        with open(path, 'r') as file:
+        with open(path, "r") as file:
             user, password = file.read().strip().split("\n")
         return user, password
     else:
@@ -70,6 +76,7 @@ def authenticate_vault(client: hvac.Client) -> hvac.Client:
     token = get_vault_token()
     if token:
         client.token = token
+        return client
 
     user, password = get_vault_user_password()
     if user and password:

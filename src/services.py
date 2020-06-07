@@ -8,8 +8,6 @@ from docker.models.secrets import Secret as DockerSecret
 from docker.types import SecretReference
 import logging
 
-logger = logging.getLogger(__name__)
-
 
 def id_to_service(service: Union[DockerService, str]) -> DockerService:
     if isinstance(service, str):
@@ -65,7 +63,10 @@ def get_docker_secret_version(secrets: List[dict], name: str) -> Optional[int]:
 
 def get_secret_labels(secret: Union[DockerSecret, str]) -> dict:
     secret = id_to_secret(secret)
-    return secret.attrs["Spec"]["Labels"]
+    if secret:
+        return secret.attrs["Spec"]["Labels"]
+    else:
+        return {}
 
 
 def update_service_secret(service: DockerService, data: bytes, version: int, name: str, path: str) -> DockerService:
@@ -75,7 +76,7 @@ def update_service_secret(service: DockerService, data: bytes, version: int, nam
     service.update(secrets=[SecretReference(secret.id, secret.name, filename=name)])
     service.reload()
 
-    logger.info(f"Updated secret: {secret.name} for service: {service.short_id}")
+    logging.info(f"Updated secret: {secret.name} for service: {service.short_id}")
     return service
 
 
@@ -84,8 +85,14 @@ def create_secret(secret_data: bytes, secret_name: str, version: int, vault_path
 
     client = docker.from_env()
     name = f"{secret_name}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    existing_secret = [secret for secret in client.secrets.list() if secret.attrs["Spec"]["Name"] == name]
+    if existing_secret:
+        return existing_secret[0]
+
     vault_path = vault_path.replace(".", "/")
-    secret = client.secrets.create(name=name, data=secret_data, labels={"version": str(version), "path": vault_path})
+    secret = client.secrets.create(
+        name=name, data=secret_data, labels={"version": str(version), "path": vault_path, "name": secret_name}
+    )
     secret.reload()
 
     return secret
@@ -119,7 +126,7 @@ def update_service_env_vars(service: DockerService, vault_key: str, vault_env: U
     service.update(env=env_list)
     service.reload()
 
-    logger.info(f"Updated env var: {vault_key} for service: {service.short_id}")
+    logging.info(f"Updated env var: {vault_key} for service: {service.short_id}")
     return service
 
 
@@ -156,18 +163,18 @@ def update_service(service: DockerService, env_vars: dict, secrets: List[dict]) 
 
     if new_environment and new_secrets:
         service.update(env=new_environment, secrets=new_secrets)
-        logger.info(
+        logging.info(
             f"Updated environment variables: {', '.join(env_vars.keys())} and "
             f"secrets: {', '.join([s['name'] for s in secrets])} for service: {service.short_id}"
         )
     elif new_environment:
         service.update(env=new_environment)
-        logger.info(f"Updated environment variables: {', '.join(env_vars.keys())} for service: {service.short_id}")
+        logging.info(f"Updated environment variables: {', '.join(env_vars.keys())} for service: {service.short_id}")
     elif new_secrets:
         service.update(secrets=new_secrets)
-        logger.info(f"Updated secrets: {', '.join([s['name'] for s in secrets])} for service: {service.short_id}")
+        logging.info(f"Updated secrets: {', '.join([s['name'] for s in secrets])} for service: {service.short_id}")
     else:
-        logger.info(f"Nothing updated for service: {service.short_id}")
+        logging.info(f"Nothing updated for service: {service.short_id}")
 
     service.reload()
     return service
