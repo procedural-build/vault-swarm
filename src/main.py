@@ -18,11 +18,11 @@ def main():
         vault_secrets = []
         for key, label in labels.items():
             if key.startswith("vault.secrets"):
-                logging.info(f"Found vault secrets label on service: {service.short_id}")
+                logging.info(f"Found vault secrets label on service: {service.name} - ID: {service.short_id}")
 
                 data, version = vault.get_secret_data_version(client, key, label)
                 secrets = get_service_secrets(service)
-                secret_version = get_docker_secret_version(secrets, label)
+                secret_version = get_docker_secret_version(secrets, label, key)
 
                 if not secret_version or version > secret_version:
                     if label == "all":
@@ -36,7 +36,7 @@ def main():
                         vault_secrets.append({"data": data[label], "version": version, "name": label, "path": key})
 
             elif key.startswith("vault.envvars"):
-                logging.info(f"Found vault secrets label on service: {service.short_id}")
+                logging.info(f"Found vault envvars label on service: {service.name} - ID: {service.short_id}")
                 env_, _ = vault.get_secret_data_version(client, key, label)
                 env_vars.update(**env_)
 

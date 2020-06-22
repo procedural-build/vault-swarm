@@ -23,9 +23,10 @@ services:
 
   my_app:
     image: ubuntu:latest
-    labels:
-      - vault.secrets.foo=secret
-      - vault.envvars.bar=KEY
+    deploy:
+      labels:
+        - vault.secrets.foo=secret
+        - vault.envvars.bar=KEY
 
 secrets:
   vault.token:
@@ -54,13 +55,15 @@ version: 3.8
 services:
   my_db:
     image: postgres:latest
-    labels:
-      - vault.envvars.database=DB_USER:POSTGRES_USER
+    deploy:
+      labels:
+        - vault.envvars.database=DB_USER:POSTGRES_USER
 
   my_app:
     image: ubuntu:latest
-    labels:
-      - vault.envvars.database=DB_USER
+    deploy:
+      labels:
+        - vault.envvars.database=DB_USER
 ```
 
 ## Authentication

@@ -53,13 +53,21 @@ def get_service_secrets(service: Union[DockerService, str]):
     return secrets
 
 
-def get_docker_secret_version(secrets: List[dict], name: str) -> Optional[int]:
+def get_docker_secret_version(secrets: List[dict], name: str, path: str) -> Optional[int]:
     if not secrets:
         return None
 
+    if name == "all":
+        for secret in secrets:
+            secret_id = secret.get("SecretID")
+            secret_labels = get_secret_labels(secret_id)
+            path = path.replace(".", "/")
+            if path == secret_labels.get("path"):
+                return int(secret_labels.get("version", 0))
+
     for secret in secrets:
         if secret.get("SecretName", "").startswith(name):
-            secret_id = secret.get("SecretId")
+            secret_id = secret.get("SecretID")
             version = get_secret_labels(secret_id).get("version", None)
             if version:
                 return int(version)
@@ -71,7 +79,7 @@ def get_docker_secret_version(secrets: List[dict], name: str) -> Optional[int]:
 def get_secret_labels(secret: Union[DockerSecret, str]) -> dict:
     secret = id_to_secret(secret)
     if secret:
-        return secret.attrs["Spec"]["Labels"]
+        return secret.attrs["Spec"].get("Labels", {})
     else:
         return {}
 
@@ -81,11 +89,11 @@ def create_secret(secret_data: bytes, secret_name: str, version: int, vault_path
 
     client = docker.from_env()
     name = f"{secret_name}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
-    existing_secret = [secret for secret in client.secrets.list() if secret.attrs["Spec"]["Name"] == name]
+    vault_path = vault_path.replace(".", "/")
+    existing_secret = [secret for secret in client.secrets.list() if set(get_secret_labels(secret).values()) == {secret_name, version, vault_path}]
     if existing_secret:
         return existing_secret[0]
 
-    vault_path = vault_path.replace(".", "/")
     secret = client.secrets.create(
         name=name, data=secret_data, labels={"version": str(version), "path": vault_path, "name": secret_name}
     )
