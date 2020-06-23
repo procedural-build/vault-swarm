@@ -1,6 +1,6 @@
 import os
 from typing import Optional, Tuple
-
+import logging
 import hvac
 import hvac.exceptions
 
@@ -13,6 +13,8 @@ def get_connection(url: str) -> hvac.Client:
 
     if not authenticated_client.is_authenticated():
         raise hvac.exceptions.Unauthorized("Unable to authenticate to the Vault service")
+    else:
+        logging.info("Vault client is authenticated")
 
     return authenticated_client
 
@@ -75,11 +77,13 @@ def authenticate_vault(client: hvac.Client) -> hvac.Client:
     """
     token = get_vault_token()
     if token:
+        logging.info("Authenticating with token")
         client.token = token
         return client
 
     user, password = get_vault_user_password()
     if user and password:
+        logging.info("Authenticating with username and password")
         client.auth_userpass(user, password)
 
     return client

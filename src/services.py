@@ -90,16 +90,32 @@ def create_secret(secret_data: bytes, secret_name: str, version: int, vault_path
     client = docker.from_env()
     name = f"{secret_name}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
     vault_path = vault_path.replace(".", "/")
-    existing_secret = [secret for secret in client.secrets.list() if set(get_secret_labels(secret).values()) == {secret_name, version, vault_path}]
+    existing_secret = get_existing_secrets(client, secret_name, version, vault_path)
+
     if existing_secret:
-        return existing_secret[0]
+        return existing_secret
 
     secret = client.secrets.create(
-        name=name, data=secret_data, labels={"version": str(version), "path": vault_path, "name": secret_name}
+        name=name,
+        data=secret_data,
+        labels={
+            "version": str(version),
+            "path": vault_path,
+            "name": secret_name,
+            "com.docker.stack.namespace": "compute",
+        },
     )
     secret.reload()
 
     return secret
+
+
+def get_existing_secrets(client, secret_name: str, version: int, vault_path: str) -> Optional[DockerSecret]:
+    secrets = client.secrets.list()
+
+    for secret in secrets:
+        if {secret_name, str(version), vault_path} <= set(get_secret_labels(secret).values()):
+            return secret
 
 
 def get_service_environment_variables(service: DockerService) -> dict:
