@@ -1,5 +1,6 @@
 import os
 import time
+import sys
 
 import vault
 from services import *
@@ -51,4 +52,14 @@ if __name__ == "__main__":
     log_level = os.environ.get("LOG_LEVEL", "INFO")
     logging.basicConfig(format="%(asctime)s - %(levelname)s - %(filename)s - %(funcName)s - %(message)s",
                         level=getattr(logging, log_level))
-    main()
+
+    # Loop for a given number of times as specified in sys.argv[1] else forever
+    run_loop = True
+    counter = 1
+    while run_loop:
+        main()
+        # Stop the loop if we are at the correct number of loops
+        if (len(sys.argv) > 2):
+            if (sys.arg[1] >= counter):
+                run_loop = False
+            counter += 1

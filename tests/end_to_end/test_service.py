@@ -23,7 +23,7 @@ def test_add_secret(image, vault_token, vault_service, vault_client, docker_serv
     response = vault_client.secrets.kv.v2.create_or_update_secret(path="test", mount_point="envvars", secret={"bar": "value"})
 
     client = docker.from_env()
-    cmd = "python main.py"
+    cmd = "python main.py 1"    # Only loop once in the test
     mounts = [Mount("/var/run/docker.sock", "/var/run/docker.sock", type="bind")]
     container = client.containers.run(
         image=image.tags[0], command=cmd, mounts=mounts,
