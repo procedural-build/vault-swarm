@@ -6,6 +6,49 @@ from services import *
 import logging
 
 
+def get_all_secrets_under_path(client, path, mount_point, secret_paths=[]):
+    response = client.secrets.kv.v2.list_secrets(path=path, mount_point=mount_point)
+    keys = response.get("data", {}).get("keys", [])
+    _path = path[:-1] if path.endswith("/") else path
+    for key in keys:
+        if key.endswith('/'):
+            secret_paths += get_all_secrets_under_path(
+                client, f"{_path}/{key}", mount_point, secret_paths=secret_paths
+            )
+        else:
+            secret_paths += [f"{_path}/{key}"]
+    return secret_paths
+
+
+def read_service_secrets(client, service, key, label):
+    logging.info(f"Found vault secrets label on service: {service.name} - ID: {service.short_id}")
+    vault_secrets = []
+
+    data, version = vault.get_secret_data_version(client, key, label)
+    secrets = get_service_secrets(service)
+    secret_version = get_docker_secret_version(secrets, label, key)
+
+    if not secret_version or (version > secret_version):
+        if label == "all":
+            vault_secrets.extend(
+                [
+                    {"data": value, "version": version, "name": data_key, "path": key}
+                    for data_key, value in data.items()
+                ]
+            )
+        else:
+            vault_secrets.append({"data": data[label], "version": version, "name": label, "path": key})
+
+    return vault_secrets
+
+
+def read_service_envvars(client, service, key, label, env_vars={}):
+    logging.info(f"Found vault envvars label on service: {service.name} - ID: {service.short_id}")
+    env_, _ = vault.get_secret_data_version(client, key, label)
+    env_vars.update(**env_)
+    return env_vars
+
+
 def main():
     """MAIN"""
     vault_url = vault.get_vault_url()
@@ -18,28 +61,23 @@ def main():
         vault_secrets = []
         for key, label in labels.items():
             if key.startswith("vault.secrets"):
-                logging.info(f"Found vault secrets label on service: {service.name} - ID: {service.short_id}")
-
-                data, version = vault.get_secret_data_version(client, key, label)
-                secrets = get_service_secrets(service)
-                secret_version = get_docker_secret_version(secrets, label, key)
-
-                if not secret_version or version > secret_version:
-                    if label == "all":
-                        vault_secrets.extend(
-                            [
-                                {"data": value, "version": version, "name": data_key, "path": key}
-                                for data_key, value in data.items()
-                            ]
-                        )
-                    else:
-                        vault_secrets.append({"data": data[label], "version": version, "name": label, "path": key})
+                vault_secrets += read_service_secrets(client, service, key, label)
 
             elif key.startswith("vault.envvars"):
-                logging.info(f"Found vault envvars label on service: {service.name} - ID: {service.short_id}")
-                env_, _ = vault.get_secret_data_version(client, key, label)
-                env_vars.update(**env_)
+                env_vars = read_service_envvars(client, service, key, label, env_vars=env_vars)
 
+            elif key.startswith("vault:"):
+                path = key.split(":")[1]
+                # Load all from vault.secrets vault.envvars by recursing paths
+                for mount_point in ["secrets", "envvars"]:
+                    secret_paths = get_all_secrets_under_path(client, path, mount_point)
+                    for path in secret_paths:
+                        if mount_point == "envvars":
+                            env_vars = read_service_envvars(client, service, path, "all", env_vars=env_vars)
+                        elif mount_point == "secrets":
+                            vault_secrets += read_service_secrets(client, service, path, "all")
+
+        # Update the service
         update_service(service, env_vars, vault_secrets)
 
     sleep_length = os.environ.get("INTERVAL", 5 * 60)

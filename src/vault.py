@@ -59,14 +59,18 @@ def get_vault_token() -> Optional[str]:
 
 
 def get_vault_user_password() -> Tuple[Optional[str], Optional[str]]:
-    path = "/run/secrets/user_pass"
+    possible_cred_files = ["user_pass", "vault.userpass"]
 
-    if os.path.exists(path):
-        with open(path, "r") as file:
-            user, password = file.read().strip().split("\n")
-        return user, password
-    else:
-        return None, None
+    for cred_file in possible_cred_files:
+        path  = f"/run/secrets/{cred_file}"
+        if os.path.exists(path):
+            logging.info(f"Found vault credentials file {path}")
+            with open(path, "r") as file:
+                user, password = file.read().strip().split("\n")
+            return user, password
+        else:
+            continue
+    return None, None
 
 
 def authenticate_vault(client: hvac.Client) -> hvac.Client:
