@@ -19,12 +19,14 @@ def get_connection(url: str) -> hvac.Client:
     return authenticated_client
 
 
-def get_secret_data_version(client: hvac.Client, path: str, secret: str) -> Tuple[dict, int]:
+def get_secret_data_version(client: hvac.Client, path: str, secret: str, mount_point=None) -> Tuple[dict, int]:
     """Get a Vault secret and its version"""
 
-    path = path.replace("vault.", "").split(".")
-    mount_point = path[0]
-    path = "/".join(path[1:])
+    # Handle dot-separated paths (which must be fully qualified)
+    if '.' in path:
+        path = path.replace("vault.", "").split(".")
+        mount_point = path[0]
+        path = "/".join(path[1:])
 
     response = client.secrets.kv.v2.read_secret_version(path=path, mount_point=mount_point)
     version = response["data"]["metadata"]["version"]

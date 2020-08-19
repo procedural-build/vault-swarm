@@ -8,6 +8,7 @@ import logging
 
 
 def get_all_secrets_under_path(client, path, mount_point, secret_paths=[]):
+    logging.info(f"Searching for secrets on path: {path}, mount_point: {mount_point}")
     response = client.secrets.kv.v2.list_secrets(path=path, mount_point=mount_point)
     keys = response.get("data", {}).get("keys", [])
     _path = path[:-1] if path.endswith("/") else path
@@ -17,6 +18,7 @@ def get_all_secrets_under_path(client, path, mount_point, secret_paths=[]):
                 client, f"{_path}/{key}", mount_point, secret_paths=secret_paths
             )
         else:
+            logging.info(f" - Found secret: {_path}/{key}")
             secret_paths += [f"{_path}/{key}"]
     return secret_paths
 
@@ -25,7 +27,8 @@ def read_service_secrets(client, service, key, label):
     logging.info(f"Found vault secrets label on service: {service.name} - ID: {service.short_id}")
     vault_secrets = []
 
-    data, version = vault.get_secret_data_version(client, key, label)
+    logging.info(f"Getting secret data version: {key}, {label}")
+    data, version = vault.get_secret_data_version(client, key, label, mount_point="secrets")
     secrets = get_service_secrets(service)
     secret_version = get_docker_secret_version(secrets, label, key)
 
@@ -45,7 +48,7 @@ def read_service_secrets(client, service, key, label):
 
 def read_service_envvars(client, service, key, label, env_vars={}):
     logging.info(f"Found vault envvars label on service: {service.name} - ID: {service.short_id}")
-    env_, _ = vault.get_secret_data_version(client, key, label)
+    env_, _ = vault.get_secret_data_version(client, key, label, mount_point="envvars")
     env_vars.update(**env_)
     return env_vars
 
@@ -57,6 +60,7 @@ def main():
 
     services = get_services_with_secrets()
     for service in services:
+        logging.info(f"CHECKING TO UPDATE SECRETS FOR SERVICE: {service}")
         labels = get_service_labels(service)
         env_vars = {}
         vault_secrets = []
@@ -68,11 +72,14 @@ def main():
                 env_vars = read_service_envvars(client, service, key, label, env_vars=env_vars)
 
             elif key.startswith("vault:"):
-                path = key.split(":")[1]
+                root_path = key.split(":")[1]
+                root_path = "/".join(root_path.split("."))
                 # Load all from vault.secrets vault.envvars by recursing paths
                 for mount_point in ["secrets", "envvars"]:
-                    secret_paths = get_all_secrets_under_path(client, path, mount_point)
-                    for path in secret_paths:
+                    logging.info(f"Scanning vault for secrets on mount_point: {mount_point}")
+                    paths = get_all_secrets_under_path(client, root_path, mount_point, secret_paths=[])
+                    logging.info(f"Found secrets: {paths}")
+                    for path in paths:
                         if mount_point == "envvars":
                             env_vars = read_service_envvars(client, service, path, "all", env_vars=env_vars)
                         elif mount_point == "secrets":
