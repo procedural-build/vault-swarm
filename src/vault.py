@@ -72,7 +72,13 @@ def get_vault_user_password() -> Tuple[Optional[str], Optional[str]]:
             return user, password
         else:
             continue
-    return None, None
+
+    # Finally try to get this from the environment
+    logging.info(f"Trying to get credentials from envvars VAULT_USER, VAULT_PASS")
+    return (
+        os.environ.get('VAULT_USER', None),
+        os.environ.get('VAULT_PASS', None)
+    )
 
 
 def authenticate_vault(client: hvac.Client) -> hvac.Client:
