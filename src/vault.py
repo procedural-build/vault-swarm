@@ -74,7 +74,7 @@ def get_vault_user_password() -> Tuple[Optional[str], Optional[str]]:
             continue
 
     # Finally try to get this from the environment
-    logging.info(f"Trying to get credentials from envvars VAULT_USER, VAULT_PASS")
+    logging.info(f"Trying to get credentials from envvars VAULT_USR, VAULT_PSW")
     return (
         os.environ.get('VAULT_USR', None),
         os.environ.get('VAULT_PSW', None)
