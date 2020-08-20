@@ -25,7 +25,7 @@ def write_envvars(envvars, root_path):
     logging.info(f"Writing envvars to: {file}")
     with open(file, 'w') as f:
         for key, value in envvars.items():
-            f.write(f"{key}={value}")
+            f.write(f"{key}={value}\n")
 
 
 def write_secrets(secrets, root_path):
