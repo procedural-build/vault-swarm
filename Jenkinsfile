@@ -23,7 +23,6 @@ pipeline {
     stage('Docker Build') {
       steps {
         sh 'docker build --target production -t vault-swarm:$BRANCH_NAME .'
-        //sh 'docker build -t clusterfunc:dev .'
       }
     }
 

@@ -200,8 +200,12 @@ def prepare_environment_variables(service: DockerService, vault_env: dict) -> li
 def prepare_secrets(vault_secrets: List[dict]) -> List[SecretReference]:
     new_secrets = []
     for secret in vault_secrets:
-        new_secret = create_secret(secret["data"], secret["name"], secret["version"], secret["path"])
-        new_secrets.append(SecretReference(new_secret.id, new_secret.name, filename=secret["name"]))
+        secret_name = secret["name"]
+        secret_path = secret_name
+        if secret_name.startswith("/"):
+            secret_name = secret_name.split("/")[-1]
+        new_secret = create_secret(secret["data"], secret_name, secret["version"], secret["path"])
+        new_secrets.append(SecretReference(new_secret.id, new_secret.name, filename=secret_path))
 
     return new_secrets
 
