@@ -16,6 +16,18 @@ def docker_secret():
 
 
 @pytest.fixture()
+def vault_secret(vault_client):
+    vault_client.sys.enable_secrets_engine(
+        backend_type='kv',
+        path='secrets',
+    )
+    response = vault_client.secrets.kv.v2.create_or_update_secret(path="test", secret={"test": "test data"},
+                                                                  mount_point="secrets")
+
+    yield response
+
+
+@pytest.fixture()
 def docker_service(vault_token):
     client = docker.from_env()
     network = client.networks.create(name=f"service_default", scope="swarm", driver="overlay", attachable=True)
@@ -78,4 +90,3 @@ def service_with_env_vars():
 
     service_.remove()
     network.remove()
-

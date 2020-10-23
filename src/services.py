@@ -3,10 +3,13 @@ from copy import deepcopy
 from typing import Union, List, Optional
 
 import docker
+import hvac
 from docker.models.services import Service as DockerService
 from docker.models.secrets import Secret as DockerSecret
 from docker.types import SecretReference
 import logging
+
+import vault
 
 
 def id_to_service(service: Union[DockerService, str]) -> DockerService:
@@ -31,7 +34,56 @@ def get_service_labels(service: Union[DockerService, str]) -> dict:
     return service.attrs["Spec"]["Labels"]
 
 
-def get_services_with_secrets():
+def get_all_secrets_under_path(client, path, mount_point, secret_paths=[]):
+    logging.info(f"Searching for secrets on path: {path}, mount_point: {mount_point}")
+    response = client.secrets.kv.v2.list_secrets(path=path, mount_point=mount_point)
+    keys = response.get("data", {}).get("keys", [])
+    _path = path[:-1] if path.endswith("/") else path
+    for key in keys:
+        if key.endswith('/'):
+            secret_paths += get_all_secrets_under_path(
+                client, f"{_path}/{key}", mount_point, secret_paths=secret_paths
+            )
+        else:
+            logging.info(f" - Found secret: {_path}/{key}")
+            secret_paths += [f"{_path}/{key}"]
+    return secret_paths
+
+
+def read_service_secrets(client: hvac.Client, service: DockerService, key: str, label: str) -> List[dict]:
+    logging.info(f"Found vault secrets label on service: {service.name} - ID: {service.short_id}")
+    vault_secrets = []
+
+    logging.info(f"Getting secret data version: {key}, {label}")
+    data, version = vault.get_secret_data_version(client, key, label, mount_point="secrets")
+    secrets = get_service_secrets(service)
+    secret_version = get_docker_secret_version(secrets, label, key)
+
+    if not secret_version or (version > secret_version):
+        if label == "all":
+            vault_secrets.extend(
+                [
+                    {"data": value, "version": version, "name": data_key, "path": key}
+                    for data_key, value in data.items()
+                ]
+            )
+        else:
+            if ":" in label:
+                _, label = label.split(":")
+
+            vault_secrets.append({"data": data[label], "version": version, "name": label, "path": key})
+
+    return vault_secrets
+
+
+def read_service_envvars(client, service, key, label, env_vars={}):
+    logging.info(f"Found vault envvars label on service: {service.name} - ID: {service.short_id}")
+    env_, _ = vault.get_secret_data_version(client, key, label, mount_point="envvars")
+    env_vars.update(**env_)
+    return env_vars
+
+
+def get_services_with_secrets() -> List[DockerService]:
     """Returns Docker services with labels that starts with 'vault.'"""
 
     client = docker.from_env()

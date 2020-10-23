@@ -43,3 +43,10 @@ def test_get_docker_secret_version(docker_secret):
 
     assert version == 1
 
+
+def test_read_service_secrets(vault_client, docker_service, vault_secret):
+    secret = read_service_secrets(vault_client, docker_service, "test", "test:/path/to/secret.pw")
+
+    assert secret
+    assert isinstance(secret, list)
+    assert {"data", "version", "name", "path"} == set(secret[0].keys())

@@ -2,55 +2,8 @@ import os
 import time
 import sys
 
-import vault
 from services import *
 import logging
-
-
-def get_all_secrets_under_path(client, path, mount_point, secret_paths=[]):
-    logging.info(f"Searching for secrets on path: {path}, mount_point: {mount_point}")
-    response = client.secrets.kv.v2.list_secrets(path=path, mount_point=mount_point)
-    keys = response.get("data", {}).get("keys", [])
-    _path = path[:-1] if path.endswith("/") else path
-    for key in keys:
-        if key.endswith('/'):
-            secret_paths += get_all_secrets_under_path(
-                client, f"{_path}/{key}", mount_point, secret_paths=secret_paths
-            )
-        else:
-            logging.info(f" - Found secret: {_path}/{key}")
-            secret_paths += [f"{_path}/{key}"]
-    return secret_paths
-
-
-def read_service_secrets(client, service, key, label):
-    logging.info(f"Found vault secrets label on service: {service.name} - ID: {service.short_id}")
-    vault_secrets = []
-
-    logging.info(f"Getting secret data version: {key}, {label}")
-    data, version = vault.get_secret_data_version(client, key, label, mount_point="secrets")
-    secrets = get_service_secrets(service)
-    secret_version = get_docker_secret_version(secrets, label, key)
-
-    if not secret_version or (version > secret_version):
-        if label == "all":
-            vault_secrets.extend(
-                [
-                    {"data": value, "version": version, "name": data_key, "path": key}
-                    for data_key, value in data.items()
-                ]
-            )
-        else:
-            vault_secrets.append({"data": data[label], "version": version, "name": label, "path": key})
-
-    return vault_secrets
-
-
-def read_service_envvars(client, service, key, label, env_vars={}):
-    logging.info(f"Found vault envvars label on service: {service.name} - ID: {service.short_id}")
-    env_, _ = vault.get_secret_data_version(client, key, label, mount_point="envvars")
-    env_vars.update(**env_)
-    return env_vars
 
 
 def main():

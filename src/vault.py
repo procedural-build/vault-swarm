@@ -29,15 +29,15 @@ def get_secret_data_version(client: hvac.Client, path: str, secret: str, mount_p
         path = "/".join(path[1:])
 
     response = client.secrets.kv.v2.read_secret_version(path=path, mount_point=mount_point)
-    version = response["data"]["metadata"]["version"]
+    version = response.get("data", {}).get("metadata", {}).get("version", 0)
     if secret == "all":
-        data = response["data"]["data"]
+        data = response.get("data", {}).get("data", None)
     else:
         if ":" in secret:
             secret_, key = secret.split(":")
-            data = {key: response["data"]["data"].get(secret_, None)}
+            data = {key: response.get("data", {}).get("data", {}).get(secret_, None)}
         else:
-            data = {secret: response["data"]["data"].get(secret, None)}
+            data = {secret: response.get("data", {}).get("data", {}).get(secret, None)}
 
     return data, version
 
@@ -47,7 +47,7 @@ def get_vault_url() -> str:
 
 
 def get_vault_token() -> Optional[str]:
-    """Get a Vault token from enviroment or from /run/secrets/vault.token"""
+    """Get a Vault token from environment or from /run/secrets/vault.token"""
 
     token = os.environ.get("VAULT_TOKEN", None)
 

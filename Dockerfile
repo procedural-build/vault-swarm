@@ -44,4 +44,4 @@ WORKDIR /app
 # Install Dev dependencies
 RUN pip install --no-index --find-links=/root/wheels_dev -r /tmp/requirements_dev.txt
 
-CMD ["python main.py"]
+CMD ["python /app/main.py"]
