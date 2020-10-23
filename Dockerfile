@@ -31,6 +31,7 @@ WORKDIR /app
 RUN pip install --no-index --find-links=/root/wheels -r /tmp/requirements.txt
 
 COPY src/ /app
+COPY VERSION /app
 
 CMD ["python main.py"]
 

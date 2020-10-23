@@ -22,6 +22,8 @@ pipeline {
 
     stage('Docker Build') {
       steps {
+        env.DOCKER_VERSION = "$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
+        sh 'echo "$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)" > VERSION'
         sh 'docker build --target production -t vault-swarm:$BRANCH_NAME .'
       }
     }
@@ -57,7 +59,9 @@ pipeline {
 
           sh('\$(aws ecr get-login --region eu-west-2 --no-include-email)')
           sh('docker tag "vault-swarm:$BRANCH_NAME" "598950368936.dkr.ecr.eu-west-2.amazonaws.com/vault-swarm:$DOCKER_TAG"')
+          sh('docker tag "vault-swarm:$BRANCH_NAME" "598950368936.dkr.ecr.eu-west-2.amazonaws.com/vault-swarm:$DOCKER_VERSION"')
           docker.withRegistry("https://598950368936.dkr.ecr.eu-west-2.amazonaws.com"){docker.image("598950368936.dkr.ecr.eu-west-2.amazonaws.com/vault-swarm:$DOCKER_TAG").push("$DOCKER_TAG")}
+          docker.withRegistry("https://598950368936.dkr.ecr.eu-west-2.amazonaws.com"){docker.image("598950368936.dkr.ecr.eu-west-2.amazonaws.com/vault-swarm:$DOCKER_TAG").push("$DOCKER_VERSION")}
         }
       }
     }
