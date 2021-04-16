@@ -64,7 +64,7 @@ def get_vault_user_password() -> Tuple[Optional[str], Optional[str]]:
     possible_cred_files = ["user_pass", "vault.userpass"]
 
     for cred_file in possible_cred_files:
-        path  = f"/run/secrets/{cred_file}"
+        path = f"/run/secrets/{cred_file}"
         if os.path.exists(path):
             logging.info(f"Found vault credentials file {path}")
             with open(path, "r") as file:

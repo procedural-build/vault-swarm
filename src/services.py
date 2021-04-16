@@ -136,7 +136,7 @@ def get_secret_labels(secret: Union[DockerSecret, str]) -> dict:
         return {}
 
 
-def create_secret(secret_data: bytes, secret_name: str, version: int, vault_path: str) -> DockerSecret:
+def create_secret(secret_data: bytes, secret_name: str, version: int, vault_path: str, stack: str) -> DockerSecret:
     """Create a Docker Secret"""
 
     client = docker.from_env()
@@ -154,7 +154,7 @@ def create_secret(secret_data: bytes, secret_name: str, version: int, vault_path
             "version": str(version),
             "path": vault_path,
             "name": secret_name,
-            "com.docker.stack.namespace": "compute",
+            "com.docker.stack.namespace": stack,
         },
     )
     secret.reload()
@@ -197,14 +197,14 @@ def prepare_environment_variables(service: DockerService, vault_env: dict) -> li
         return convert_dict_to_env_list(new_env)
 
 
-def prepare_secrets(vault_secrets: List[dict]) -> List[SecretReference]:
+def prepare_secrets(vault_secrets: List[dict], stack: str) -> List[SecretReference]:
     new_secrets = []
     for secret in vault_secrets:
         secret_name = secret["name"]
         secret_path = secret_name
         if secret_name.startswith("/"):
             secret_name = secret_name.split("/")[-1]
-        new_secret = create_secret(secret["data"], secret_name, secret["version"], secret["path"])
+        new_secret = create_secret(secret["data"], secret_name, secret["version"], secret["path"], stack)
         new_secrets.append(SecretReference(new_secret.id, new_secret.name, filename=secret_path))
 
     return new_secrets
@@ -214,12 +214,13 @@ def update_service(service: DockerService, env_vars: dict, secrets: List[dict]) 
     """Bulk update a Docker service with new environment variables and secrets"""
 
     new_environment = new_secrets = None
+    stack = service.attrs["Spec"]["TaskTemplate"]["ContainerSpec"]["Labels"]["com.docker.stack.namespace"]
 
     if env_vars:
         new_environment = prepare_environment_variables(service, env_vars)
 
     if secrets:
-        new_secrets = prepare_secrets(secrets)
+        new_secrets = prepare_secrets(secrets, stack)
 
     if new_environment and new_secrets:
         service.update(env=new_environment, secrets=new_secrets)
