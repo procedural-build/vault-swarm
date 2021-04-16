@@ -2,15 +2,18 @@ pipeline {
   agent any
 
   environment {
-    SLACK = credentials('slack')
     WORKSPACE_DIR = """${sh(
-            returnStdout: true,
-            script: 'echo -n "${WORKSPACE##*/}"'
-        )}"""
+        returnStdout: true,
+        script: 'echo -n "${WORKSPACE##*/}"'
+    )}"""
     HOST_SRC_PATH = """${sh(
-            returnStdout: true,
-            script: 'echo -n "$HOST_WORKSPACE_PATH${WORKSPACE##*/}/"'
-        )}"""
+        returnStdout: true,
+        script: 'echo -n "$HOST_WORKSPACE_PATH${WORKSPACE##*/}/"'
+    )}"""
+    DOCKER_VERSION = """${sh(
+        script: 'echo -n "$(date +%Y.%m.%d)-\$(git rev-parse --short HEAD)"',
+        returnStdout: true
+    )}"""
   }
 
   stages {
@@ -22,9 +25,16 @@ pipeline {
 
     stage('Docker Build') {
       steps {
-        env.DOCKER_VERSION = "$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)"
-        sh 'echo "$(date +%Y.%m.%d)-$(git rev-parse --short HEAD)" > VERSION'
-        sh 'docker build --target production -t vault-swarm:$BRANCH_NAME .'
+        script {
+            env.BUILD_DATE = new Date().format('YYYY-MM-dd HH:mm:ss', TimeZone.getTimeZone('UTC'))
+        }
+        sh '''docker build \
+        --target production \
+        --build-arg DOCKER_TAG=$DOCKER_VERSION \
+        --build-arg BUILD_DATE="$BUILD_DATE" \
+        --build-arg GIT_COMMIT=$GIT_COMMIT \
+        --build-arg BRANCH=$BRANCH_NAME \
+        -t vault-swarm:$BRANCH_NAME .'''
       }
     }
 
@@ -70,31 +80,6 @@ pipeline {
 
     always {
       cleanWs()
-
-      script {
-        sh 'docker container prune -f'
-        sh 'docker volume prune -f'
-      }
-    }
-
-    success {
-      slackSend(
-         message: "SUCCESS\nJob: ${env.JOB_NAME} \nBuild ${env.BUILD_DISPLAY_NAME} \n URL: ${env.RUN_DISPLAY_URL} \n Latest Stage Coverage Report: https://docs.procedural.build/track/coverage/",
-         color: "good",
-         token: "${SLACK}",
-         baseUrl: 'https://traecker.slack.com/services/hooks/jenkins-ci/',
-         channel: '#jenkins-ci'
-      )
-    }
-
-    failure {
-       slackSend(
-         message: "FAILED\nJob: ${env.JOB_NAME} \nBuild ${env.BUILD_DISPLAY_NAME} \n URL: ${env.RUN_DISPLAY_URL}",
-         color: "#fc070b",
-         token: "${SLACK}",
-         baseUrl: 'https://traecker.slack.com/services/hooks/jenkins-ci/',
-         channel: '#jenkins-ci'
-       )
     }
   }
 

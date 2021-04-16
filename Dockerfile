@@ -3,6 +3,7 @@ ARG PYTHON_VERSION=sha256:c5623df482648cacece4f9652a0ae04b51576c93773ccd43ad459e
 
 FROM python@$PYTHON_VERSION as build
 
+
 # Declare package versions
 ENV PIPENV 2020.6.2
 ENV BUILD_BASE 0.5-r2
@@ -31,9 +32,19 @@ WORKDIR /app
 RUN pip install --no-index --find-links=/root/wheels -r /tmp/requirements.txt
 
 COPY src/ /app
-COPY VERSION /app
 
-CMD ["python main.py"]
+# Versioning
+ARG DOCKER_TAG
+ARG BUILD_DATE
+ARG GIT_COMMIT
+ARG BRANCH
+
+ENV DOCKER_TAG=${DOCKER_TAG:-dev}
+ENV BUILD_DATE=${BUILD_DATE:-now}
+ENV GIT_COMMIT=${GIT_COMMIT:-dev}
+ENV BRANCH=${BRANCH:-dev}
+
+CMD ["python /app/main.py"]
 
 FROM python@$PYTHON_VERSION AS dev
 # Dev container with dev dependencies installed
