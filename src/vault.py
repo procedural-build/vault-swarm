@@ -24,9 +24,7 @@ def get_secret_data_version(client: hvac.Client, path: str, secret: str, mount_p
 
     # Handle dot-separated paths (which must be fully qualified)
     if '.' in path:
-        path = path.replace("vault.", "").split(".")
-        mount_point = path[0]
-        path = "/".join(path[1:])
+        mount_point, path = get_vault_path(path, secret)
 
     response = client.secrets.kv.v2.read_secret_version(path=path, mount_point=mount_point)
     version = response.get("data", {}).get("metadata", {}).get("version", 0)
@@ -44,6 +42,18 @@ def get_secret_data_version(client: hvac.Client, path: str, secret: str, mount_p
 
 def get_vault_url() -> str:
     return os.environ.get("VAULT_ADDRESS", "http://0.0.0.0:8200")
+
+
+def get_vault_path(path: str, secret: str):
+    path = path.replace("vault.", "").split(".")
+    mount_point = path[0]
+    if ":" in secret:
+        secret = secret.split(":")[0]
+    if secret == path[-1]:
+        path.pop()
+    path = "/".join(path[1:])
+
+    return mount_point, path
 
 
 def get_vault_token() -> Optional[str]:

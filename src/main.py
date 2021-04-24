@@ -13,7 +13,7 @@ def main():
 
     services = get_services_with_secrets()
     for service in services:
-        logging.info(f"CHECKING TO UPDATE SECRETS FOR SERVICE: {service}")
+        logging.info(f"CHECKING TO UPDATE SECRETS FOR SERVICE: {service.name}")
         labels = get_service_labels(service)
         env_vars = {}
         vault_secrets = []
@@ -27,6 +27,7 @@ def main():
             elif key.startswith("vault:"):
                 root_path = key.split(":")[1]
                 root_path = "/".join(root_path.split("."))
+
                 # Load all from vault.secrets vault.envvars by recursing paths
                 for mount_point in ["secrets", "envvars"]:
                     logging.info(f"Scanning vault for secrets on mount_point: {mount_point}")
@@ -43,7 +44,7 @@ def main():
 
     sleep_length = os.environ.get("INTERVAL", 5 * 60)
     logging.info(f"Going to sleep for {sleep_length}s")
-    time.sleep(sleep_length)
+    time.sleep(int(sleep_length))
 
 
 if __name__ == "__main__":

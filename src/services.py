@@ -9,6 +9,8 @@ from docker.models.secrets import Secret as DockerSecret
 from docker.types import SecretReference
 import logging
 
+from hvac.exceptions import InvalidPath
+
 import vault
 
 
@@ -55,7 +57,12 @@ def read_service_secrets(client: hvac.Client, service: DockerService, key: str, 
     vault_secrets = []
 
     logging.info(f"Getting secret data version: {key}, {label}")
-    data, version = vault.get_secret_data_version(client, key, label, mount_point="secrets")
+    try:
+        data, version = vault.get_secret_data_version(client, key, label, mount_point="secrets")
+    except InvalidPath:
+        logging.error(f"Could not find Vault secret at: {key}={label}")
+        return []
+
     secrets = get_service_secrets(service)
     secret_version = get_docker_secret_version(secrets, label, key)
 
@@ -78,8 +85,14 @@ def read_service_secrets(client: hvac.Client, service: DockerService, key: str, 
 
 def read_service_envvars(client, service, key, label, env_vars={}):
     logging.info(f"Found vault envvars label on service: {service.name} - ID: {service.short_id}")
-    env_, _ = vault.get_secret_data_version(client, key, label, mount_point="envvars")
-    env_vars.update(**env_)
+
+    try:
+        env_, _ = vault.get_secret_data_version(client, key, label, mount_point="envvars")
+        env_vars.update(**env_)
+    except InvalidPath:
+        logging.error(f"Could not find Vault secret at: {key}={label}")
+        pass
+
     return env_vars
 
 
