@@ -24,3 +24,13 @@ def test_read_secret(vault_client):
 
     assert response
     assert response["data"]["data"] == {"test": "value"}
+
+
+def test_get_secret_data_version(vault_client, secrets):
+    path, secret = secrets
+    data, version = vault.get_secret_data_version(vault_client, path, secret, "secrets")
+
+    if ":" in secret:
+        secret = secret.split(":")[-1]
+    assert list(data.keys())[0] == secret
+    assert version == 1

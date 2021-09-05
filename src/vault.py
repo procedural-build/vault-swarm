@@ -25,6 +25,8 @@ def get_secret_data_version(client: hvac.Client, path: str, secret: str, mount_p
     # Handle dot-separated paths (which must be fully qualified)
     if '.' in path:
         mount_point, path = get_vault_path(path, secret)
+    if ":" in path:
+        path = path.split(":")[0]
 
     response = client.secrets.kv.v2.read_secret_version(path=path, mount_point=mount_point)
     version = response.get("data", {}).get("metadata", {}).get("version", 0)
