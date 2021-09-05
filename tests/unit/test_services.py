@@ -50,3 +50,10 @@ def test_read_service_secrets(vault_client, docker_service, vault_secret):
     assert secret
     assert isinstance(secret, list)
     assert {"data", "version", "name", "path"} == set(secret[0].keys())
+
+
+def test_create_secret():
+    secret = create_secret(b"some data", "test_secret", 1,
+                  "vault.secrets.ssl-certificates.archive.sustainabilitytool-net:privkey1.pem", "my-test-stack")
+
+    assert secret
