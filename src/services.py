@@ -153,7 +153,7 @@ def create_secret(secret_data: bytes, secret_name: str, version: int, vault_path
     """Create a Docker Secret"""
 
     client = docker.from_env()
-    name = f"{secret_name}_{vault_path}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    name = f"{secret_name}_{vault_path.replace(':', '')}_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}"
     vault_path = vault_path.replace(".", "/")
     existing_secret = get_existing_secrets(client, secret_name, version, vault_path)
 
