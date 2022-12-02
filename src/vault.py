@@ -3,6 +3,7 @@ from typing import Optional, Tuple
 import logging
 import hvac
 import hvac.exceptions
+from hvac.api.auth_methods.userpass import Userpass
 
 
 def get_connection(url: str) -> hvac.Client:
@@ -108,6 +109,8 @@ def authenticate_vault(client: hvac.Client) -> hvac.Client:
     user, password = get_vault_user_password()
     if user and password:
         logging.info("Authenticating with username and password")
-        client.auth_userpass(user, password)
+        #client.auth_userpass(user, password)
+        Userpass(client.adapter).login(user, password)
+        logging.info(f"Client is_authenticated == {client.is_authenticated()}")
 
     return client
