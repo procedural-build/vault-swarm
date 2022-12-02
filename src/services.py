@@ -180,7 +180,7 @@ def create_secret(secret_data: bytes, secret_name: str, version: int, vault_path
 
 def create_secret_name(name: str, path: str):
     _time = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-    _path = path.replace(":", "")
+    _path = path.replace(":", "").replace("/",".")
     if len(name+_path+_time) > 64:
         _path = _path[len(name+_time)-64:]
     return f"{name}{_path}{_time}"
